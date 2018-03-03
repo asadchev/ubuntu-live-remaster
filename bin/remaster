@@ -1,0 +1,74 @@
+#!/bin/bash
+
+set -E
+
+function help() {
+    echo "Usage: $(basename $0) -i iso -w work -c customize -l label -d device"
+}
+
+function error() {
+    echo $1
+    help
+    exit 1
+}
+
+scripts=$(dirname $0)
+
+ISO=""
+WORK=""
+LABEL=""
+DEVICE=""
+CUSTOMIZE=""
+
+POSITIONAL=()
+
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+	-i|--iso)
+	    ISO="$2"
+	    shift # past argument
+	    shift # past value
+	    ;;
+	-w|--work)
+	    WORK="$2"
+	    shift # past argument
+	    shift # past value
+	    ;;
+	-c|--customize)
+	    CUSTOMIZE="$2"
+	    shift # past argument
+	    shift # past value
+	    ;;
+	-l|--label)
+	    LABEL="$2"
+	    shift # past argument
+	    shift # past value
+	    ;;
+	-d|--device)
+	    DEVICE="$2"
+	    shift # past argument
+	    shift # past value
+	    ;;
+	*)    # unknown option
+	    POSITIONAL+=("$1") # save it in an array for later
+	    shift # past argument
+	    ;;
+    esac
+done
+
+[[ -z $ISO ]] && error "--iso option is not set"
+[[ -z $WORK ]]     && error "--work option is not set"
+[[ -z $LABEL ]]    && error "--label option is not set"
+[[ -z $DEVICE ]]   && error "--device option is not set"
+
+$scripts/remaster.extract $ISO $WORK
+
+$scripts/remaster.customize $WORK/squashfs-root $CUSTOMIZE
+
+$scripts/remaster.casper $WORK
+
+bytes="$(expr $(du -bxs $WORK/iso | cut -f1) / 1024 + 1024 \* 100)K"
+$scripts/remaster.partition $DEVICE $LABEL $bytes
+
+$scripts/remaster.install $WORK $DEVICE $LABEL

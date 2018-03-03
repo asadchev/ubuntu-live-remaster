@@ -1,0 +1,27 @@
+#!/bin/sh
+
+set -E
+
+device=$1
+label=$2
+bytes=$3
+
+echo "Partioning ${device} ..."
+
+umount -f ${device}1
+umount -f ${device}2
+umount -f ${device}3
+umount -f ${device}4
+
+dd if=/dev/zero of=${device} bs=512 count=1
+
+sgdisk --zap-all --clear ${device}
+sgdisk --new 1::+1M     --typecode=1:ef02 --change-name=1:"BIOS" \
+       --new 2::+100M   --typecode=2:ef00 --change-name=2:"EFI" \
+       --new 3::+$bytes --typecode=3:8300 --change-name=3:"$label" \
+       --new 4::-0      --typecode=4:8300 --change-name=4:"home-rw" \
+       ${device}
+
+mkfs.vfat -F32 ${device}2
+mkfs.ext4 -O ^has_journal -b 4096 -L "$label"  ${device}3
+mkfs.ext4 -O ^has_journal -b 4096 -L "home-rw" ${device}4

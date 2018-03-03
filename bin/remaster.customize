@@ -1,0 +1,50 @@
+#!/bin/bash
+
+squashfs_root=$1
+customize_script=$2
+
+# cleanup
+cleanup() {
+    echo "Cleaning up ..."
+    umount -f $squashfs_root/sys
+    umount -f $squashfs_root/dev/pts
+    umount -f $squashfs_root/run
+    umount -f $squashfs_root/dev
+    umount -f $squashfs_root/proc/sys/fs/binfmt_misc
+    umount -f $squashfs_root/proc
+}
+
+trap cleanup EXIT INT
+
+set -E
+#set -x
+
+echo "
+127.0.0.1 localhost
+127.0.1.1 ubuntu
+" > $squashfs_root/etc/hosts
+
+mount -o bind /run/ $squashfs_root/run
+mount -o bind /dev/ $squashfs_root/dev
+
+chroot $squashfs_root <<EOF
+#set -x
+set -E
+mount -t proc none /proc
+mount -t sysfs none /sys
+mount -t devpts none /dev/pts
+EOF
+
+if [ -n "$customize_script" ]; then
+    echo "Running customize script $customize_script in $squashfs_root ..."
+    $customize_script $squashfs_root
+else
+    echo "Starting shell in $squashfs_root ..."
+    echo "Type exit or Ctrl-d when done."
+    pushd $squashfs_root
+    /bin/bash
+    popd
+fi
+
+rm -rf $squashfs_root/tmp/* $squashfs_root/root/.bash_history
+

@@ -1,0 +1,35 @@
+#!/bin/bash
+
+iso=$1
+dir=$2
+mountpoint=mnt/$(basename $iso .iso)
+
+cleanup() {
+    echo "Cleaning up ..."
+    umount -f $dir/$mountpoint
+}
+
+trap cleanup EXIT
+
+
+#set -x
+set -E
+
+rm -fr $dir/iso
+mkdir -p $dir/iso
+mkdir -p $dir/$mountpoint
+
+umount -f $dir/$mountpoint
+mount -o loop $iso $dir/$mountpoint
+
+echo "Copying from $dir/iso to $dir/$mountpoint/ ..."
+rsync -av $dir/$mountpoint/ $dir/iso \
+      --exclude=/boot \
+      --exclude=/isolinux \
+      --exclude=/EFI \
+      --exclude=/casper/filesystem.\*
+
+echo "Uncompresing $dir/$mountpoint/casper/filesystem.squashfs ..."
+rm -fr $dir/squashfs-root
+sudo unsquashfs -d $dir/squashfs-root $dir/$mountpoint/casper/filesystem.squashfs
+

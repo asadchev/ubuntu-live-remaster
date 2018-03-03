@@ -1,0 +1,19 @@
+#!/bin/bash
+
+set -E
+
+squashfs_root=$1/squashfs-root
+casper=$1/iso/casper
+
+echo "Creating $casper/filesystem.squashfs from $squashfs_root ..."
+
+chroot $squashfs_root dpkg-query -W --showformat='${Package} ${Version}\n' > $casper/filesystem.manifest
+
+cp $casper/filesystem.manifest $casper/filesystem.manifest-desktop
+sed -i '/ubiquity/d' $casper/filesystem.manifest-desktop
+sed -i '/casper/d' $casper/filesystem.manifest-desktop
+
+rm -f $casper/filesystem.squashfs
+mksquashfs $squashfs_root $casper/filesystem.squashfs # -nolzma
+
+printf $(du -sx --block-size=1 $casper/filesystem.squashfs | cut -f1) >  $casper/filesystem.size
